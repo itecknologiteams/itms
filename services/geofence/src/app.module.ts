@@ -13,6 +13,7 @@ import { VehicleZonePairing } from './entities/vehicle-zone-pairing.entity';
 import { MovementPass } from './entities/movement-pass.entity';
 import { Violation } from './entities/violation.entity';
 import { ZonesController } from './zones/zones.controller';
+import { InternalZonesController } from './zones/internal.controller';
 import { ZonesService } from './zones/zones.service';
 import { ZoneRegistry } from './zones/zone-registry.service';
 import { ViolationsController } from './violations/violations.controller';
@@ -56,7 +57,7 @@ const dsHolder: { ds?: DataSource } = {};
       },
     ]),
   ],
-  controllers: [ZonesController, ViolationsController],
+  controllers: [ZonesController, InternalZonesController, ViolationsController],
   providers: [
     { provide: GEOFENCE_CONFIG, useValue: config },
     ZonesService,
