@@ -94,6 +94,19 @@ Everything ships as containers on Kubernetes; nothing binds to a specific cloud:
 | Object storage | MinIO | S3 |
 | Decision checklist | Sindh Govt data-residency ruling, DC uptime SLA, bandwidth to Karachi users | Legal sign-off for PII offshore |
 
+## 6a. Implementation decisions (recorded during Phase 0 build)
+
+These were unspecified in the PDFs and are fixed here as the build begins:
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| Monorepo base | **npm workspaces + TypeScript project references** | Zero-config, reliable; this is the layout Nx wraps. Nx's affected-graph/caching can be layered on later without moving files. |
+| ORM / migrations | **TypeORM 0.3** | First-class NestJS integration, explicit migrations (no auto-sync), raw SQL escape hatch for PostGIS. |
+| Password hashing | **argon2id** | Matches security.md §1. |
+| JWT signing | **jsonwebtoken** (RS256) | Direct control over sign/verify; keys from file (dev) or secret manager (prod). |
+| TOTP (admin 2FA) | **otplib** | Standard RFC 6238. |
+| IDs | **UUID v7** (`uuid`) | Time-ordered, index-friendly (matches data-model.md). |
+
 ## 7. Versions & standards
 
 - Node 20 LTS · TypeScript 5.x · NestJS 10 · Flutter 3.2x (stable) · PostgreSQL 16 · Redis 7 · RabbitMQ 3.13 · Kong 3.x · Kubernetes 1.29+

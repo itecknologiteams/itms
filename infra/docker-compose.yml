@@ -1,0 +1,91 @@
+# Local development infrastructure for the Electric Taxi Management System.
+# Production runs these as HA services on Kubernetes (see docs/devops.md §3).
+# Credentials here are DEV ONLY and match .env.example.
+
+name: itms
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: itms-postgres
+    environment:
+      POSTGRES_USER: itms
+      POSTGRES_PASSWORD: itms_dev_password
+      POSTGRES_DB: itms
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./volumes/postgres:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U itms']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: itms-redis
+    command: ['redis-server', '--appendonly', 'yes', '--appendfsync', 'everysec']
+    ports:
+      - '6379:6379'
+    volumes:
+      - ./volumes/redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: itms-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: itms
+      RABBITMQ_DEFAULT_PASS: itms_dev_password
+    ports:
+      - '5672:5672'   # AMQP
+      - '15672:15672' # management UI
+    volumes:
+      - ./volumes/rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  emqx:
+    image: emqx/emqx:5.6
+    container_name: itms-emqx
+    environment:
+      EMQX_ALLOW_ANONYMOUS: 'false'
+      EMQX_DASHBOARD__DEFAULT_USERNAME: admin
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: itms_dev_password
+    ports:
+      - '1883:1883'   # MQTT
+      - '18083:18083' # dashboard
+    volumes:
+      - ./volumes/emqx:/opt/emqx/data
+    healthcheck:
+      test: ['CMD', '/opt/emqx/bin/emqx', 'ctl', 'status']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: itms-minio
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: itms_minio
+      MINIO_ROOT_PASSWORD: itms_minio_password
+    ports:
+      - '9000:9000' # S3 API
+      - '9001:9001' # console
+    volumes:
+      - ./volumes/minio:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 15s
+      timeout: 10s
+      retries: 5

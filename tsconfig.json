@@ -1,0 +1,9 @@
+{
+  "files": [],
+  "references": [
+    { "path": "libs/common" },
+    { "path": "libs/events" },
+    { "path": "libs/auth" },
+    { "path": "services/auth" }
+  ]
+}

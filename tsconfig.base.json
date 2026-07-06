@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "incremental": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "strict": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@itms/common": ["libs/common/src/index.ts"],
+      "@itms/common/*": ["libs/common/src/*"],
+      "@itms/events": ["libs/events/src/index.ts"],
+      "@itms/events/*": ["libs/events/src/*"],
+      "@itms/auth": ["libs/auth/src/index.ts"],
+      "@itms/auth/*": ["libs/auth/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist"]
+}

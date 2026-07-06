@@ -39,3 +39,51 @@ All planning and design documents live in [`docs/`](docs/):
 - `Backend MicroServices Architecture New Project.pdf` — SDD-ET-001 Microservices Backend Architecture (v1.0)
 
 The docs in `docs/` supersede both PDFs where they conflict; every deviation is recorded in the relevant doc.
+
+## Repository layout
+
+```
+itms/
+├── docs/                 # Planning & design docs (source of truth)
+├── infra/                # Local dev infrastructure (Docker Compose, DB init)
+├── libs/                 # Shared backend libraries
+│   ├── common/           # Config, logging, error envelope, health, OpenAPI
+│   ├── events/           # RabbitMQ event-bus client + outbox pattern
+│   └── auth/             # JWT guard, roles decorator (consumed by all services)
+├── services/             # The 12 microservices (NestJS)
+│   └── auth/             # Auth service — reference implementation
+├── scripts/              # Dev scripts (key generation, etc.)
+├── keys/                 # Local JWT keys (git-ignored; see keys/README.md)
+└── apps/                 # Flutter + Next.js clients (Phase 1)
+```
+
+> **Monorepo tooling:** the backend uses **npm workspaces** with TypeScript project
+> references as the base. This is the layout Nx wraps; the Nx task-graph layer noted in
+> `docs/techstack.md` can be layered on without moving files. Recorded deviation, not a scope cut.
+
+## Local development
+
+**Prerequisites:** Node.js 20 (see `.nvmrc`), Docker + Docker Compose, `openssl`.
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment
+cp .env.example .env
+
+# 3. Generate a local JWT keypair (dev only)
+npm run keys:gen
+
+# 4. Start local infrastructure (Postgres+PostGIS, Redis, RabbitMQ, EMQX, MinIO)
+npm run infra:up
+
+# 5. Run the Auth service
+npm run -w @itms/auth start:dev
+
+# Lint / format / test
+npm run lint
+npm test
+```
+
+Service ports and credentials are documented in `.env.example` and `infra/docker-compose.yml`.
