@@ -14,3 +14,6 @@ export * from './dto/pagination.dto';
 // Bootstrap
 export * from './bootstrap/bootstrap';
 export * from './bootstrap/openapi';
+
+// Geo
+export * from './geo/geo';
