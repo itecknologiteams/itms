@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "../..",
+    "types": ["node", "jest"]
+  },
+  "references": [
+    { "path": "../../libs/common" },
+    { "path": "../../libs/events" },
+    { "path": "../../libs/auth" }
+  ],
+  "include": ["src/**/*.ts"],
+  "exclude": ["**/*.spec.ts", "dist", "node_modules"]
+}

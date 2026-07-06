@@ -5,6 +5,7 @@
     { "path": "libs/events" },
     { "path": "libs/auth" },
     { "path": "services/auth" },
-    { "path": "services/geofence" }
+    { "path": "services/geofence" },
+    { "path": "services/tracking" }
   ]
 }
