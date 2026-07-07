@@ -13,6 +13,7 @@
     { "path": "services/payment" },
     { "path": "services/driver" },
     { "path": "services/passenger" },
-    { "path": "services/document" }
+    { "path": "services/document" },
+    { "path": "services/notification" }
   ]
 }
