@@ -9,6 +9,7 @@
     { "path": "services/tracking" },
     { "path": "services/ride" },
     { "path": "services/dispatch" },
-    { "path": "services/fare" }
+    { "path": "services/fare" },
+    { "path": "services/payment" }
   ]
 }
