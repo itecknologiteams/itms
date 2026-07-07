@@ -1,6 +1,14 @@
-import { DynamicModule, Global, Inject, Injectable, Module } from '@nestjs/common';
+import { DynamicModule, Global, Inject, Injectable, Module, SetMetadata } from '@nestjs/common';
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+
+// Mirrors @itms/auth's Public() decorator's metadata key exactly (see
+// libs/auth/src/public.decorator.ts) without importing @itms/auth, which
+// depends on @itms/common — importing it back here would be circular.
+// Every service applies JwtAuthGuard app-wide via APP_GUARD, so without this,
+// health checks (Docker/K8s liveness & readiness probes) would 401.
+const IS_PUBLIC_KEY = 'itms:isPublic';
+const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
 export interface ReadinessCheck {
   name: string;
@@ -45,12 +53,14 @@ export class HealthController {
   constructor(private readonly health: HealthService) {}
 
   /** Liveness — process is up. Never touches dependencies. */
+  @Public()
   @Get('health')
   liveness() {
     return this.health.liveness();
   }
 
   /** Readiness — all declared dependencies (DB, broker, cache) are reachable. */
+  @Public()
   @Get('ready')
   async readiness() {
     return this.health.readiness();
