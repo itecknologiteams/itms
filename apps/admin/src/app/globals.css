@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens (docs/ui-ux.md) — mirrors libs/design-tokens/tokens.json.
+   Kept as CSS custom properties here because Tailwind's static config can't
+   express the light/dark swap at paint time; the JSON file remains the
+   single source of truth for the *values*. */
+:root {
+  --color-primary: #0fa958;
+  --color-secondary: #0b3954;
+  --color-accent: #00c2a8;
+  --color-warn: #f5a524;
+  --color-danger: #e5484d;
+  --surface-solid: #f7f9fa;
+  --on-glass-text: #0b1215;
+  --page-bg: radial-gradient(circle at 15% 0%, #e6fff4 0%, #f7f9fa 45%, #eef3f6 100%);
+
+  --glass-raised-fill: rgba(255, 255, 255, 0.65);
+  --glass-raised-border: rgba(255, 255, 255, 0.6);
+  --glass-overlay-fill: rgba(255, 255, 255, 0.5);
+  --glass-overlay-border: rgba(255, 255, 255, 0.4);
+  --glass-modal-fill: rgba(255, 255, 255, 0.82);
+  --glass-modal-border: rgba(255, 255, 255, 0.65);
+}
+
+:root[data-theme='dark'] {
+  --color-primary: #38d57f;
+  --color-secondary: #9ac1d9;
+  --color-accent: #2ee6cb;
+  --color-warn: #f7b84e;
+  --color-danger: #ff6b6e;
+  --surface-solid: #0e1416;
+  --on-glass-text: #f2f7f5;
+  --page-bg: radial-gradient(circle at 15% 0%, #0c2620 0%, #0e1416 45%, #0a1012 100%);
+
+  --glass-raised-fill: rgba(16, 24, 32, 0.55);
+  --glass-raised-border: rgba(255, 255, 255, 0.14);
+  --glass-overlay-fill: rgba(16, 24, 32, 0.45);
+  --glass-overlay-border: rgba(255, 255, 255, 0.1);
+  --glass-modal-fill: rgba(11, 18, 21, 0.82);
+  --glass-modal-border: rgba(255, 255, 255, 0.18);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-primary: #38d57f;
+    --color-secondary: #9ac1d9;
+    --color-accent: #2ee6cb;
+    --color-warn: #f7b84e;
+    --color-danger: #ff6b6e;
+    --surface-solid: #0e1416;
+    --on-glass-text: #f2f7f5;
+    --page-bg: radial-gradient(circle at 15% 0%, #0c2620 0%, #0e1416 45%, #0a1012 100%);
+    --glass-raised-fill: rgba(16, 24, 32, 0.55);
+    --glass-raised-border: rgba(255, 255, 255, 0.14);
+    --glass-overlay-fill: rgba(16, 24, 32, 0.45);
+    --glass-overlay-border: rgba(255, 255, 255, 0.1);
+    --glass-modal-fill: rgba(11, 18, 21, 0.82);
+    --glass-modal-border: rgba(255, 255, 255, 0.18);
+  }
+}
+
+body {
+  background: var(--page-bg);
+  color: var(--on-glass-text);
+  min-height: 100vh;
+}
+
+/* The three canonical glass tiers (docs/ui-ux.md §2.2) — the only sanctioned
+   glass recipes in this app. Do not hand-roll ad-hoc blur/opacity elsewhere. */
+.glass-raised {
+  background: var(--glass-raised-fill);
+  border: 1px solid var(--glass-raised-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+.glass-overlay {
+  background: var(--glass-overlay-fill);
+  border: 1px solid var(--glass-overlay-border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.glass-modal {
+  background: var(--glass-modal-fill);
+  border: 1.5px solid var(--glass-modal-border);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+}
+
+/* Low-end / reduced-motion fallback: swap blur for a solid-ish surface
+   (docs/ui-ux.md §6 performance guardrails). */
+@media (prefers-reduced-motion: reduce) {
+  .glass-raised,
+  .glass-overlay,
+  .glass-modal {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 35%, transparent);
+}

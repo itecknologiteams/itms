@@ -39,3 +39,8 @@ infra/volumes/
 apps/**/.dart_tool/
 apps/**/build/
 apps/**/.flutter-plugins*
+
+# Next.js (admin panel)
+apps/**/.next/
+apps/**/out/
+apps/**/next-env.d.ts
