@@ -1,3 +1,5 @@
+import '../util/json.dart';
+
 class LatLon {
   final double lat;
   final double lon;
@@ -44,7 +46,7 @@ class Ride {
             : null,
         driverId: json['driverId'] as String?,
         vehicleId: json['vehicleId'] as String?,
-        farePaisa: json['farePaisa'] as int?,
+        farePaisa: parseBigintField(json['farePaisa']),
         distanceM: (json['distanceM'] as num?)?.toDouble(),
         durationS: json['durationS'] as int?,
         startedAt: json['startedAt'] != null ? DateTime.tryParse(json['startedAt'] as String) : null,

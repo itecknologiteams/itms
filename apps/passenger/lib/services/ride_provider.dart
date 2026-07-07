@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../models/ride.dart';
@@ -15,6 +16,7 @@ class RideProvider extends ChangeNotifier {
   final AuthProvider auth;
   Ride? current;
   io.Socket? _socket;
+  Timer? _pollTimer;
   bool loading = false;
   String? error;
 
@@ -32,6 +34,7 @@ class RideProvider extends ChangeNotifier {
       });
       current = Ride.fromJson(json as Map<String, dynamic>);
       _connectSocket(current!.id);
+      _startPolling();
     } catch (e) {
       error = e.toString();
     } finally {
@@ -81,8 +84,30 @@ class RideProvider extends ChangeNotifier {
   void clear() {
     _socket?.dispose();
     _socket = null;
+    _pollTimer?.cancel();
     current = null;
     notifyListeners();
+  }
+
+  /// The WebSocket push (below) is a fast path, not the only path — a single
+  /// socket.io instance with no reconnect/backoff handling is a documented
+  /// v1 limitation (services/ride/src/rides/ride.gateway.ts's own comment on
+  /// this), and it's been observed to occasionally miss a push in practice
+  /// (e.g. a client connecting right as the server emits). Poll as a
+  /// correctness safety net so the UI can never get stuck showing stale
+  /// status or a stale (pre-calculation) fare — cheap enough at this
+  /// interval for a single active ride.
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (current == null || !current!.isActive) {
+        _pollTimer?.cancel();
+        return;
+      }
+      // Best-effort: a transient network error on one tick shouldn't stop
+      // the timer — the next tick (or the socket push) tries again.
+      refresh().catchError((_) {});
+    });
   }
 
   void _connectSocket(String rideId) {
@@ -96,8 +121,8 @@ class RideProvider extends ChangeNotifier {
           .build(),
     );
     socket.onConnect((_) {});
-    socket.on('ride.state', (_) => refresh());
-    socket.on('ride.fare', (_) => refresh());
+    socket.on('ride.state', (_) => refresh().catchError((_) {}));
+    socket.on('ride.fare', (_) => refresh().catchError((_) {}));
     socket.connect();
     _socket = socket;
   }
@@ -105,6 +130,7 @@ class RideProvider extends ChangeNotifier {
   @override
   void dispose() {
     _socket?.dispose();
+    _pollTimer?.cancel();
     super.dispose();
   }
 }

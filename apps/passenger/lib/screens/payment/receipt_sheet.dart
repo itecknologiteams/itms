@@ -3,6 +3,7 @@ import '../../services/api_exception.dart';
 import '../../services/payment_service.dart';
 import '../../services/ride_provider.dart';
 import '../../theme/tokens.dart';
+import '../../util/json.dart';
 import '../../widgets/glass_panel.dart';
 
 /// Receipt & rating (docs/ui-ux.md §3), shown once a ride is `completed`.
@@ -56,7 +57,7 @@ class _ReceiptSheetState extends State<ReceiptSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final amount = _receipt?['amount_paisa'] as int?;
+    final amount = parseBigintField(_receipt?['amount_paisa']);
     final method = _receipt?['method'] as String?;
 
     return GlassPanel(
