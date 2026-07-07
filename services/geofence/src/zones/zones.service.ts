@@ -120,6 +120,13 @@ export class ZonesService {
           assignedBy: adminId ?? null,
         }),
       );
+      // Dispatch's eligibility projection learns a vehicle's zone from this
+      // event (docs/architecture.md §2) — without it, a newly paired vehicle
+      // is never eligible for offers.
+      await this.emit(mgr, EventNames.VehicleUpdated, {
+        vehicle_id: vehicleId,
+        paired_zone_id: zoneId,
+      });
     });
     this.registry.setPairing(vehicleId, zoneId);
   }
