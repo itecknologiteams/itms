@@ -8,6 +8,7 @@
     { "path": "services/geofence" },
     { "path": "services/tracking" },
     { "path": "services/ride" },
-    { "path": "services/dispatch" }
+    { "path": "services/dispatch" },
+    { "path": "services/fare" }
   ]
 }

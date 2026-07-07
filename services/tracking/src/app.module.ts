@@ -18,6 +18,7 @@ import { TrackerHealthService } from './health/tracker-health.service';
 import { TrailService } from './trails/trail.service';
 import { LIVE_LOCATION_STORE, RedisLiveLocationStore } from './live/live-location.store';
 import { InternalTrackingController, TrackingController } from './query/tracking.controller';
+import { InternalTrailsController } from './query/internal-trails.controller';
 
 const config = loadConfig();
 const dsHolder: { ds?: DataSource } = {};
@@ -47,7 +48,7 @@ const dsHolder: { ds?: DataSource } = {};
       },
     ]),
   ],
-  controllers: [TrackingController, InternalTrackingController],
+  controllers: [TrackingController, InternalTrackingController, InternalTrailsController],
   providers: [
     { provide: TRACKING_CONFIG, useValue: config },
     { provide: LIVE_LOCATION_STORE, useClass: RedisLiveLocationStore },
