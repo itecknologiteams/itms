@@ -20,4 +20,3 @@ export const AppDataSource = new DataSource({
   logging: process.env.NODE_ENV !== 'production' ? ['error', 'warn'] : ['error'],
 });
 
-export default AppDataSource;
