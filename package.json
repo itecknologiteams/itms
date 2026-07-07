@@ -25,7 +25,7 @@
     "infra:logs": "docker compose -f infra/docker-compose.yml logs -f",
     "keys:gen": "bash scripts/gen-keys.sh",
     "migrate:all": "bash scripts/migrate-all.sh",
-    "bootstrap:admin": "npm run -w @itms/auth-service bootstrap:admin",
+    "bootstrap:admin": "bash scripts/bootstrap-admin.sh",
     "e2e:smoke": "node scripts/smoke-test.mjs"
   },
   "devDependencies": {

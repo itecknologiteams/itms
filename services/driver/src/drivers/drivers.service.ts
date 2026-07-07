@@ -270,7 +270,13 @@ export class DriversService {
           id: uuidv7(),
           eventName: EventNames.DriverStatusChanged,
           payload: {
-            driver_id: driver.id,
+            // Ride/Dispatch identify a driver by the Auth user id (JWT `sub`,
+            // i.e. Principal.userId — see ride.controller.ts's @CurrentUser()
+            // calls and dispatch's DriverRegistry), NOT this row's own PK.
+            // Publishing driver.id here silently broke every ride: Dispatch
+            // would register the driver as eligible under a key Ride/claim
+            // never looks up, so matching always found zero eligible drivers.
+            driver_id: driver.authUserId,
             vehicle_id: driver.currentVehicleId,
             online: driver.online === OnlineStatus.Online,
           },

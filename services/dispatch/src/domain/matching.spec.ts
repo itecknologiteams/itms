@@ -64,9 +64,14 @@ describe('expansion policy', () => {
     expect(shouldContinue(1, 80_000, p)).toBe(false); // 80s + 15s > 90s
   });
 
-  it('stops when zones can no longer grow', () => {
+  it('keeps retrying the same maximal zone set once zones can no longer grow', () => {
     const small = { ...p, availableZoneCount: 3 };
-    // Only 3 zones exist: round 1 already covers all, no expansion possible.
-    expect(shouldContinue(1, 0, small)).toBe(false);
+    // Only 3 zones exist: round 1 already covers all, no further expansion is
+    // possible, but matching should still keep re-broadcasting to that set
+    // until the time budget runs out — eligibility is eventually consistent,
+    // so a driver missed in round 1 may be indexed in time for round 2.
+    expect(shouldContinue(1, 0, small)).toBe(true);
+    expect(zoneCountForRound(1, small)).toBe(3);
+    expect(zoneCountForRound(2, small)).toBe(3);
   });
 });

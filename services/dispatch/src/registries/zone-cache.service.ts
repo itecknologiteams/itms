@@ -17,6 +17,7 @@ interface InternalZone {
 export class ZoneCache implements OnModuleInit {
   private readonly logger = new Logger(ZoneCache.name);
   private zones: ZoneGeometry[] = [];
+  private loaded = false;
 
   constructor(
     @Inject(DISPATCH_CONFIG) private readonly config: DispatchConfig,
@@ -24,7 +25,21 @@ export class ZoneCache implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.refresh();
+    // Docker-compose/Kubernetes give no ordering guarantee that Geofence is
+    // already accepting connections when Dispatch boots (there's no explicit
+    // startup dependency between them). Without a retry here, a single failed
+    // fetch would leave the cache permanently empty — matching would silently
+    // find zero zones for every ride until an unrelated zone edit happened to
+    // fire a `zone.updated` event. Retry in the background instead of
+    // blocking startup, so /health still comes up promptly.
+    void this.refreshUntilLoaded();
+  }
+
+  private async refreshUntilLoaded(): Promise<void> {
+    while (!this.loaded) {
+      await this.refresh();
+      if (!this.loaded) await new Promise((r) => setTimeout(r, 3000));
+    }
   }
 
   async refresh(): Promise<void> {
@@ -35,6 +50,7 @@ export class ZoneCache implements OnModuleInit {
         }),
       );
       this.zones = res.data.map((z) => ({ zoneId: z.zone_id, ring: z.ring }));
+      this.loaded = true;
       this.logger.log(`Zone cache refreshed: ${this.zones.length} active zones`);
     } catch (err) {
       this.logger.error(`Zone cache refresh failed: ${(err as Error).message}`);
