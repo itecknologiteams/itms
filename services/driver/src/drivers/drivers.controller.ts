@@ -37,6 +37,13 @@ export class DriversController {
     return this.drivers.get(id);
   }
 
+  @Get(':id/public')
+  @Roles(Role.Passenger, Role.Driver, Role.AdminOperator, Role.AdminSupervisor, Role.AdminSuper)
+  @ApiOperation({ summary: "A driver's public ride-card profile (name, rating, vehicle) — no PII" })
+  getPublic(@Param('id') id: string) {
+    return this.drivers.getPublicProfile(id);
+  }
+
   @Post(':id/approve')
   @Roles(Role.AdminSupervisor, Role.AdminSuper)
   approve(@Param('id') id: string) {

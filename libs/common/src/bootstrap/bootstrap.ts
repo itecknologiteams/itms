@@ -19,6 +19,18 @@ export function applyCommonSetup(app: INestApplication, opts: BootstrapOptions):
   app.useLogger(app.get(Logger));
   app.flushLogs();
 
+  // Every route is already authorized by JWT (per-route @Roles/@Public), not
+  // by origin, so allowing any origin is safe — and necessary, since the
+  // mobile apps' web build (and any future browser client that isn't
+  // proxied same-origin like the admin panel's Next.js rewrites are) calls
+  // these services directly from the browser. No cookies are used for auth
+  // (Bearer tokens only), so this doesn't need `credentials: true`.
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()) : true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Trace-Id'],
+  });
+
   app.enableVersioning({
     type: VersioningType.URI,
     defaultVersion: opts.apiVersion ?? '1',

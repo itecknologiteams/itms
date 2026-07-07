@@ -65,6 +65,35 @@ export class DriversService {
     return d;
   }
 
+  /**
+   * The subset of a driver's profile safe to show a passenger on the ride
+   * card (docs/ui-ux.md §3 "driver photo, name, rating, EV badge, plate") —
+   * never phone/cnic/license/documents. Passenger app has no other way to
+   * learn who picked them up.
+   *
+   * Takes the Auth user id, not this row's own PK: Ride/Dispatch identify a
+   * driver by Principal.userId everywhere (see the driver.status.changed fix
+   * above), and `ride.driverId` — the only id the passenger app ever has —
+   * is stamped from that same value, never from Driver.id.
+   */
+  async getPublicProfile(authUserId: string): Promise<{
+    id: string;
+    name: string;
+    ratingAvg: string;
+    vehicle: { plateNo: string; model: string; color: string | null } | null;
+  }> {
+    const d = await this.getByAuthUserId(authUserId);
+    const vehicle = d.currentVehicleId
+      ? await this.vehicles.findOne({ where: { id: d.currentVehicleId } })
+      : null;
+    return {
+      id: d.id,
+      name: d.name,
+      ratingAvg: d.ratingAvg,
+      vehicle: vehicle ? { plateNo: vehicle.plateNo, model: vehicle.model, color: vehicle.color } : null,
+    };
+  }
+
   /** Admin approves a driver after document review (docs/specs.md A-04). */
   async approve(id: string): Promise<Driver> {
     const d = await this.get(id);
