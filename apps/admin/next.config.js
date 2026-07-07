@@ -48,6 +48,8 @@ function serviceUrl(service) {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Minimal self-contained server bundle for the production Docker image.
+  output: 'standalone',
   async rewrites() {
     const gateway = process.env.API_GATEWAY_URL;
     if (gateway) {

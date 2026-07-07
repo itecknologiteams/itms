@@ -17,7 +17,18 @@ function readKey(pathVar: string, inlineVar: string): string {
   const inline = process.env[inlineVar];
   if (inline) return inline.replace(/\\n/g, '\n');
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  return require('node:fs').readFileSync(required(pathVar), 'utf8');
+  const fs = require('node:fs');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const path = require('node:path');
+  const keyPath = required(pathVar);
+  // `npm run -w <pkg>` changes cwd to the workspace dir, which would break a
+  // default repo-root-relative key path for host-run commands (migrations,
+  // start:dev, bootstrap scripts). INIT_CWD is npm's own record of where the
+  // command was actually invoked from; Docker sets an absolute path, which
+  // path.isAbsolute short-circuits, so this doesn't affect container runs.
+  const base = process.env.INIT_CWD ?? process.cwd();
+  const resolved = path.isAbsolute(keyPath) ? keyPath : path.resolve(base, keyPath);
+  return fs.readFileSync(resolved, 'utf8');
 }
 
 export function loadConfig(): DriverConfig {

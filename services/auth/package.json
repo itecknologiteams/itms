@@ -10,6 +10,7 @@
     "typeorm": "typeorm-ts-node-commonjs -d src/data-source.ts",
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
+    "bootstrap:admin": "ts-node -r tsconfig-paths/register src/bootstrap-admin.ts",
     "test": "jest --rootDir . --config ../../jest.config.js"
   },
   "dependencies": {
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.6",
+    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "tsconfig-paths": "^4.2.0"
   }

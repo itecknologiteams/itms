@@ -21,6 +21,11 @@ export class OtpService {
   private readonly logger = new Logger(OtpService.name);
   // Dev-only pepper; production reads OTP_PEPPER from the secret manager.
   private readonly pepper = process.env.OTP_PEPPER ?? 'dev-otp-pepper';
+  // Plaintext codes are NEVER persisted (only the HMAC is stored, above) — this
+  // cache exists purely so automated dev/CI testing (scripts/smoke-test.mjs)
+  // can retrieve a code without an SMS gateway. Populated only when devEcho is
+  // true, which is already documented as never-enabled-in-production.
+  private readonly devEchoCache = new Map<string, { code: string; expiresAt: number }>();
 
   constructor(
     @Inject(AUTH_CONFIG) private readonly config: AuthConfig,
@@ -59,9 +64,19 @@ export class OtpService {
     if (this.config.otp.devEcho) {
       // NEVER enabled in production (guarded by env). Aids local testing.
       this.logger.warn(`[DEV OTP] ${phone} (${purpose}) → ${code}`);
+      this.devEchoCache.set(phone, { code, expiresAt: Date.now() + this.config.otp.ttlSeconds * 1000 });
     }
 
     return { challenge_id: challenge.id, expires_in: this.config.otp.ttlSeconds };
+  }
+
+  /** Dev/CI-only: retrieve the most recently issued code for a phone. Returns
+   * null when devEcho is off (production) or nothing is cached/it expired. */
+  peekDevCode(phone: string): string | null {
+    if (!this.config.otp.devEcho) return null;
+    const entry = this.devEchoCache.get(phone);
+    if (!entry || entry.expiresAt < Date.now()) return null;
+    return entry.code;
   }
 
   /** Verify a code for the most recent unconsumed challenge. */

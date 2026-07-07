@@ -5,15 +5,51 @@ Electric taxis operate inside admin-defined geo-fenced zones; passengers book ri
 fare is computed post-ride from GPS-measured time and distance, and every vehicle is continuously
 tracked and validated against its paired geofence.
 
+## Status
+
+| Component | Status |
+|---|---|
+| Backend — 12 microservices | ✅ Built, unit-tested, dockerized |
+| Admin Web Panel (Next.js) | ✅ Built, verified against mock data; wired for the real backend |
+| Passenger / Driver apps (Flutter) | ⏳ Not started — needs a Flutter toolchain |
+| Kubernetes/Helm/Kong manifests | ⏳ Not started — `docker-compose` is the local/dev deployment today |
+
+## Quick start (run the whole system)
+
+**Prerequisites:** Docker + Docker Compose, Node.js 20, `openssl`.
+
+```bash
+npm install
+cp .env.example .env
+npm run keys:gen                              # generate a local JWT keypair
+
+npm run infra:up                              # builds & starts infra + all 12 services + admin panel
+npm run migrate:all                           # applies every service's DB migrations
+
+ADMIN_BOOTSTRAP_EMAIL=admin@itms.example \
+ADMIN_BOOTSTRAP_PASSWORD='change-me-please' \
+npm run bootstrap:admin                       # creates the first Super Admin login + TOTP secret
+
+open http://localhost:3100                    # Admin Panel — sign in with the account above
+```
+
+`bootstrap:admin` prints an `otpauth://` URI — scan it into an authenticator app (Google
+Authenticator, 1Password, Authy) to get your 6-digit codes. It's shown once; re-run the
+Auth service's migrations/bootstrap or query `auth_db.users` directly if you lose it.
+
+Run `npm run e2e:smoke` (see [Verifying it actually works](#verifying-it-actually-works) below)
+to prove the full ride → fare → payment flow works end-to-end against the running stack.
+
 ## Platform components
 
-| Component | Technology | Repo path (planned) |
+| Component | Technology | Path |
 |---|---|---|
-| Passenger App (Android + iOS) | Flutter | `apps/passenger` |
-| Driver App (Android) | Flutter | `apps/driver` |
+| Passenger App (Android + iOS) | Flutter | `apps/passenger` (not started) |
+| Driver App (Android) | Flutter | `apps/driver` (not started) |
 | Admin Web Panel | Next.js (React) | `apps/admin` |
 | Backend (12 microservices) | NestJS monorepo | `services/*` |
-| Infrastructure | Docker / Kubernetes / Terraform | `infra/` |
+| Shared libraries | TypeScript | `libs/*` |
+| Infrastructure | Docker Compose (K8s/Terraform planned) | `infra/` |
 
 ## Documentation index
 
@@ -45,45 +81,57 @@ The docs in `docs/` supersede both PDFs where they conflict; every deviation is 
 ```
 itms/
 ├── docs/                 # Planning & design docs (source of truth)
-├── infra/                # Local dev infrastructure (Docker Compose, DB init)
-├── libs/                 # Shared backend libraries
-│   ├── common/           # Config, logging, error envelope, health, OpenAPI
+├── infra/                # Docker Compose stack (infra + all 12 services + admin panel), DB init
+├── libs/
+│   ├── common/           # Config, logging, error envelope, health, geo utils, OpenAPI
 │   ├── events/           # RabbitMQ event-bus client + outbox pattern
-│   └── auth/             # JWT guard, roles decorator (consumed by all services)
-├── services/             # The 12 microservices (NestJS)
-│   └── auth/             # Auth service — reference implementation
-├── scripts/              # Dev scripts (key generation, etc.)
-├── keys/                 # Local JWT keys (git-ignored; see keys/README.md)
-└── apps/                 # Flutter + Next.js clients (Phase 1)
+│   ├── auth/              # JWT guard, roles decorator (consumed by all services)
+│   └── design-tokens/     # Shared color/glass tokens — consumed by the admin panel today,
+│                          # and by the Flutter apps once mobile work starts
+├── services/              # The 12 microservices (NestJS) — auth, passenger, driver, dispatch,
+│                          # geofence, tracking, ride, fare, payment, document, notification,
+│                          # admin-reporting
+├── apps/
+│   └── admin/             # Admin Web Panel (Next.js)
+├── scripts/               # Dev scripts: key generation, migrate-all
+└── keys/                  # Local JWT keys (git-ignored; see keys/README.md)
 ```
 
 > **Monorepo tooling:** the backend uses **npm workspaces** with TypeScript project
 > references as the base. This is the layout Nx wraps; the Nx task-graph layer noted in
 > `docs/techstack.md` can be layered on without moving files. Recorded deviation, not a scope cut.
 
-## Local development
-
-**Prerequisites:** Node.js 20 (see `.nvmrc`), Docker + Docker Compose, `openssl`.
+## Local development (single service, without Docker)
 
 ```bash
-# 1. Install dependencies
 npm install
-
-# 2. Configure environment
 cp .env.example .env
-
-# 3. Generate a local JWT keypair (dev only)
 npm run keys:gen
+npm run infra:up          # infra + services all start via Docker; or run just infra containers
+                           # and iterate on one service natively:
+npm run -w @itms/auth-service start:dev
 
-# 4. Start local infrastructure (Postgres+PostGIS, Redis, RabbitMQ, EMQX, MinIO)
-npm run infra:up
-
-# 5. Run the Auth service
-npm run -w @itms/auth start:dev
-
-# Lint / format / test
+# Lint / format / test (fast, no infra needed)
 npm run lint
 npm test
 ```
+
+## Verifying it actually works
+
+This isn't just "it builds" — there's a real end-to-end proof:
+
+- **Unit tests** (`npm test`): 101+ tests covering the pure domain logic in every service
+  (ride state machine, dispatch matching, geofence hysteresis, fare formula, payment retry
+  policy, CQRS projections) — run in seconds, no infra required.
+- **`npm run e2e:smoke`** (see `scripts/smoke-test.mjs`): drives the real HTTP APIs across the
+  running Docker Compose stack through a full ride lifecycle — onboard a driver & vehicle, pair
+  a geofence zone, request a ride as a passenger, accept it via Dispatch's atomic claim, start
+  and end the trip, confirm Fare and Payment complete it, and confirm an admin can log in and
+  see it in Reports. This is the test that proves the 12 services actually talk to each other
+  correctly, not just that each one compiles in isolation.
+- **CI** (`.github/workflows/ci.yml`) runs both on every push: unit tests always, and a
+  `docker-e2e` job that builds every image, brings up the full stack, and runs the smoke test —
+  because this sandbox environment has no Docker daemon, **CI is the environment that actually
+  proves the system works end-to-end**, continuously.
 
 Service ports and credentials are documented in `.env.example` and `infra/docker-compose.yml`.

@@ -4,9 +4,9 @@
 FROM node:20-slim AS builder
 WORKDIR /app
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-COPY package.json package-lock.json* tsconfig.base.json tsconfig.json ./
-COPY libs ./libs
-COPY services/payment ./services/payment
+# Full monorepo copy: npm workspaces' lockfile validation needs every
+# workspace's package.json present, not just this service's.
+COPY . .
 RUN npm ci
 RUN npm run build -w @itms/common \
  && npm run build -w @itms/events \

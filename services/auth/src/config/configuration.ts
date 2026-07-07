@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
 
 /** Typed configuration for the Auth service, loaded once at bootstrap. */
 export interface AuthConfig {
@@ -37,7 +38,15 @@ function readKey(pathVar: string, inlineVar: string): string {
   // Allow either a PEM file path (dev) or the raw PEM in an env var (prod/secret manager).
   const inline = process.env[inlineVar];
   if (inline) return inline.replace(/\\n/g, '\n');
-  return readFileSync(required(pathVar), 'utf8');
+  const keyPath = required(pathVar);
+  // `npm run -w <pkg>` changes cwd to the workspace dir, which would break a
+  // default repo-root-relative key path for host-run commands (migrations,
+  // start:dev, bootstrap scripts). INIT_CWD is npm's own record of where the
+  // command was actually invoked from; Docker sets an absolute path, which
+  // isAbsolute short-circuits, so this doesn't affect container runs.
+  const base = process.env.INIT_CWD ?? process.cwd();
+  const resolved = isAbsolute(keyPath) ? keyPath : resolve(base, keyPath);
+  return readFileSync(resolved, 'utf8');
 }
 
 export function loadConfig(): AuthConfig {

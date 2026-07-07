@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Param, Post } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { IsEmail, IsEnum, IsOptional, Matches } from 'class-validator';
 import { Public, Role } from '@itms/auth';
 import { AuthService } from './auth.service';
+import { OtpService } from '../otp/otp.service';
 
 class ProvisionUserDto {
   @Matches(/^\+92\d{10}$/)
@@ -24,7 +25,10 @@ class ProvisionUserDto {
 @ApiExcludeController()
 @Controller({ path: 'internal', version: '1' })
 export class InternalController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly otp: OtpService,
+  ) {}
 
   @Public()
   @Post('users')
@@ -36,5 +40,19 @@ export class InternalController {
   @Get('users/:id')
   getUser(@Param('id') id: string) {
     return this.auth.getUserById(id);
+  }
+
+  /**
+   * Dev/CI-only: retrieve the most recently issued OTP for a phone, so
+   * automated testing (scripts/smoke-test.mjs) can log in without a real SMS
+   * gateway. Returns 404 whenever OTP_DEV_ECHO is off — i.e. always in
+   * production (docs/security.md §1).
+   */
+  @Public()
+  @Get('otp/:phone')
+  peekOtp(@Param('phone') phone: string) {
+    const code = this.otp.peekDevCode(phone);
+    if (!code) throw new NotFoundException({ code: 'NO_DEV_OTP', message: 'Not available' });
+    return { code };
   }
 }

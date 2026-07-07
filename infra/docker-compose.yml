@@ -1,8 +1,45 @@
-# Local development infrastructure for the Electric Taxi Management System.
-# Production runs these as HA services on Kubernetes (see docs/devops.md §3).
-# Credentials here are DEV ONLY and match .env.example.
+# Local development stack for the Electric Taxi Management System: infra +
+# all 12 backend microservices + the admin panel. Production runs these as HA
+# services on Kubernetes (see docs/devops.md §3). Credentials here are DEV
+# ONLY and match .env.example.
+#
+# Quick start:
+#   npm run keys:gen                    # generate a local JWT keypair
+#   docker compose -f infra/docker-compose.yml up -d --build
+#   npm run migrate:all                 # apply every service's migrations
+#   npm run bootstrap:admin             # create the first Super Admin login
+#   open http://localhost:3100          # admin panel
+#
+# See docs/devops.md and the root README for details.
 
 name: itms
+
+x-app-env: &app-env
+  NODE_ENV: development
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: '5432'
+  POSTGRES_USER: itms
+  POSTGRES_PASSWORD: itms_dev_password
+  REDIS_URL: redis://redis:6379
+  RABBITMQ_URL: amqp://itms:itms_dev_password@rabbitmq:5672
+  RABBITMQ_EXCHANGE: itms.events
+  JWT_ISSUER: itms-auth
+  JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
+  AUTH_BASE_URL: http://auth:3001
+  DISPATCH_BASE_URL: http://dispatch:3004
+  GEOFENCE_BASE_URL: http://geofence:3005
+  TRACKING_BASE_URL: http://tracking:3006
+
+x-app-keys-volume: &app-keys-volume
+  - ../keys:/app/keys:ro
+
+x-infra-healthy: &infra-healthy
+  postgres:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+  rabbitmq:
+    condition: service_healthy
 
 services:
   postgres:
@@ -89,3 +126,188 @@ services:
       interval: 15s
       timeout: 10s
       retries: 5
+
+  # ─── Backend microservices (docs/architecture.md §2) ─────────────────────
+
+  auth:
+    build: { context: .., dockerfile: services/auth/Dockerfile }
+    container_name: itms-auth
+    environment:
+      <<: *app-env
+      AUTH_SERVICE_PORT: '3001'
+      AUTH_DB_NAME: auth_db
+      JWT_PRIVATE_KEY_PATH: /app/keys/jwt_private.pem
+      OTP_DEV_ECHO: 'true' # no real SMS gateway in dev — codes are logged
+    volumes: *app-keys-volume
+    ports: ['3001:3001']
+    depends_on: *infra-healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3001/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  passenger:
+    build: { context: .., dockerfile: services/passenger/Dockerfile }
+    container_name: itms-passenger
+    environment:
+      <<: *app-env
+      PASSENGER_SERVICE_PORT: '3002'
+      PASSENGER_DB_NAME: passenger_db
+    volumes: *app-keys-volume
+    ports: ['3002:3002']
+    depends_on: *infra-healthy
+
+  driver:
+    build: { context: .., dockerfile: services/driver/Dockerfile }
+    container_name: itms-driver
+    environment:
+      <<: *app-env
+      DRIVER_SERVICE_PORT: '3003'
+      DRIVER_DB_NAME: driver_db
+    volumes: *app-keys-volume
+    ports: ['3003:3003']
+    depends_on: *infra-healthy
+
+  dispatch:
+    build: { context: .., dockerfile: services/dispatch/Dockerfile }
+    container_name: itms-dispatch
+    environment:
+      <<: *app-env
+      DISPATCH_SERVICE_PORT: '3004'
+    volumes: *app-keys-volume
+    ports: ['3004:3004']
+    depends_on: *infra-healthy
+
+  geofence:
+    build: { context: .., dockerfile: services/geofence/Dockerfile }
+    container_name: itms-geofence
+    environment:
+      <<: *app-env
+      GEOFENCE_SERVICE_PORT: '3005'
+      GEOFENCE_DB_NAME: geofence_db
+    volumes: *app-keys-volume
+    ports: ['3005:3005']
+    depends_on: *infra-healthy
+
+  tracking:
+    build: { context: .., dockerfile: services/tracking/Dockerfile }
+    container_name: itms-tracking
+    environment:
+      <<: *app-env
+      TRACKING_SERVICE_PORT: '3006'
+      TRACKING_DB_NAME: tracking_db
+      MQTT_URL: mqtt://emqx:1883
+      TRACKER_TOPIC_IS_VEHICLE_ID: 'true' # dev convenience — see services/tracking/README.md
+    volumes: *app-keys-volume
+    ports: ['3006:3006']
+    depends_on:
+      <<: *infra-healthy
+      emqx:
+        condition: service_healthy
+
+  ride:
+    build: { context: .., dockerfile: services/ride/Dockerfile }
+    container_name: itms-ride
+    environment:
+      <<: *app-env
+      RIDE_SERVICE_PORT: '3007'
+      RIDE_DB_NAME: ride_db
+    volumes: *app-keys-volume
+    ports: ['3007:3007']
+    depends_on: *infra-healthy
+
+  fare:
+    build: { context: .., dockerfile: services/fare/Dockerfile }
+    container_name: itms-fare
+    environment:
+      <<: *app-env
+      FARE_SERVICE_PORT: '3008'
+      FARE_DB_NAME: fare_db
+    volumes: *app-keys-volume
+    ports: ['3008:3008']
+    depends_on: *infra-healthy
+
+  payment:
+    build: { context: .., dockerfile: services/payment/Dockerfile }
+    container_name: itms-payment
+    environment:
+      <<: *app-env
+      PAYMENT_SERVICE_PORT: '3009'
+      PAYMENT_DB_NAME: payment_db
+      PAYMENT_GATEWAY_MODE: stub # real JazzCash/1LINK credentials pending — OPEN-3
+    volumes: *app-keys-volume
+    ports: ['3009:3009']
+    depends_on: *infra-healthy
+
+  document:
+    build: { context: .., dockerfile: services/document/Dockerfile }
+    container_name: itms-document
+    environment:
+      <<: *app-env
+      DOCUMENT_SERVICE_PORT: '3010'
+      DOCUMENT_DB_NAME: document_db
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: itms-dev
+      S3_ACCESS_KEY: itms_minio
+      S3_SECRET_KEY: itms_minio_password
+    volumes: *app-keys-volume
+    ports: ['3010:3010']
+    depends_on:
+      <<: *infra-healthy
+      minio:
+        condition: service_healthy
+
+  notification:
+    build: { context: .., dockerfile: services/notification/Dockerfile }
+    container_name: itms-notification
+    environment:
+      <<: *app-env
+      NOTIFICATION_SERVICE_PORT: '3011'
+      NOTIF_DB_NAME: notif_db
+    volumes: *app-keys-volume
+    ports: ['3011:3011']
+    depends_on: *infra-healthy
+
+  admin-reporting:
+    build: { context: .., dockerfile: services/admin-reporting/Dockerfile }
+    container_name: itms-admin-reporting
+    environment:
+      <<: *app-env
+      ADMIN_REPORTING_SERVICE_PORT: '3012'
+      REPORTING_DB_NAME: reporting_db
+    volumes: *app-keys-volume
+    ports: ['3012:3012']
+    depends_on: *infra-healthy
+
+  # ─── Admin Panel (apps/admin) ─────────────────────────────────────────────
+
+  admin:
+    build:
+      context: ..
+      dockerfile: apps/admin/Dockerfile
+      args:
+        NEXT_PUBLIC_MOCK_MODE: 'false'
+    container_name: itms-admin
+    environment:
+      AUTH_SERVICE_URL: http://auth:3001
+      PASSENGER_SERVICE_URL: http://passenger:3002
+      DRIVER_SERVICE_URL: http://driver:3003
+      DISPATCH_SERVICE_URL: http://dispatch:3004
+      GEOFENCE_SERVICE_URL: http://geofence:3005
+      TRACKING_SERVICE_URL: http://tracking:3006
+      RIDE_SERVICE_URL: http://ride:3007
+      FARE_SERVICE_URL: http://fare:3008
+      PAYMENT_SERVICE_URL: http://payment:3009
+      DOCUMENT_SERVICE_URL: http://document:3010
+      NOTIFICATION_SERVICE_URL: http://notification:3011
+      ADMIN_REPORTING_SERVICE_URL: http://admin-reporting:3012
+    ports: ['3100:3100']
+    depends_on:
+      - auth
+      - geofence
+      - driver
+      - fare
+      - admin-reporting
+      - notification
