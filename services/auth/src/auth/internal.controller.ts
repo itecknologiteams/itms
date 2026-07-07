@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { IsEmail, IsEnum, IsOptional, Matches } from 'class-validator';
 import { Public, Role } from '@itms/auth';
@@ -30,5 +30,11 @@ export class InternalController {
   @Post('users')
   provisionUser(@Body() dto: ProvisionUserDto) {
     return this.auth.provisionUser(dto.phone, dto.role, dto.email);
+  }
+
+  @Public()
+  @Get('users/:id')
+  getUser(@Param('id') id: string) {
+    return this.auth.getUserById(id);
   }
 }

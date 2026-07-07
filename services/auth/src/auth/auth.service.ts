@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { ConflictError, DomainRuleError, UnauthorizedError } from '@itms/common';
+import { ConflictError, DomainRuleError, NotFoundError, UnauthorizedError } from '@itms/common';
 import { Role } from '@itms/auth';
 import { EventNames, OutboxEntity } from '@itms/events';
 import { authenticator } from 'otplib';
@@ -118,6 +118,14 @@ export class AuthService {
       }),
     );
     return { user_id: user.id };
+  }
+
+  /** Internal lookup used by other services to resolve phone/role for their own
+   * profile records without duplicating identity data (docs/architecture.md §2). */
+  async getUserById(id: string): Promise<{ user_id: string; phone: string; role: Role }> {
+    const user = await this.users.findOne({ where: { id } });
+    if (!user) throw new NotFoundError('USER_NOT_FOUND', 'User not found');
+    return { user_id: user.id, phone: user.phone, role: user.role };
   }
 
   async refresh(refreshToken: string): Promise<TokenPairResponse> {
