@@ -49,6 +49,49 @@ jobs:
       - name: Unit tests
         run: npm test
 
+  docker-e2e:
+    name: Full stack + smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate dev JWT keys
+        run: npm run keys:gen
+
+      - name: Configure environment
+        run: cp .env.example .env
+
+      - name: Build and start the full stack
+        run: npm run infra:up
+
+      - name: Apply migrations
+        run: npm run migrate:all
+
+      - name: Bootstrap the first admin account
+        run: |
+          ADMIN_BOOTSTRAP_EMAIL=admin@itms.example \
+          ADMIN_BOOTSTRAP_PASSWORD='change-me-please' \
+          npm run bootstrap:admin
+
+      - name: Run the end-to-end smoke test
+        run: npm run e2e:smoke
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker compose -f infra/docker-compose.yml logs --tail=200
+
+      - name: Tear down
+        if: always()
+        run: npm run infra:down
+
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-latest
