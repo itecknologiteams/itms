@@ -12,6 +12,7 @@
     { "path": "services/fare" },
     { "path": "services/payment" },
     { "path": "services/driver" },
-    { "path": "services/passenger" }
+    { "path": "services/passenger" },
+    { "path": "services/document" }
   ]
 }
