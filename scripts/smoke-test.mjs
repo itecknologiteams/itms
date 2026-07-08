@@ -205,15 +205,22 @@ async function main() {
 
   log('Confirming the ride shows up in admin reporting...');
   const today = new Date().toISOString().slice(0, 10);
-  const report = await api(
-    'GET',
-    url('adminReporting', `/admin/reports/rides_daily?from=${today}&to=${today}`),
-    { token: adminToken },
+  // Admin-Reporting's projection consumes `ride.completed` on its own queue,
+  // asynchronously from the payment/receipt calls above — same
+  // eventual-consistency reasoning as every other post-event check in this
+  // script, so this needs the same retry treatment.
+  const totalCompleted = await waitFor(
+    async () => {
+      const report = await api(
+        'GET',
+        url('adminReporting', `/admin/reports/rides_daily?from=${today}&to=${today}`),
+        { token: adminToken },
+      );
+      const total = report.reduce((sum, row) => sum + (row.ridesCompleted ?? 0), 0);
+      return total >= 1 ? total : null;
+    },
+    { timeoutMs: 10_000, intervalMs: 1000, label: 'admin reporting projection' },
   );
-  const totalCompleted = report.reduce((sum, row) => sum + (row.ridesCompleted ?? 0), 0);
-  if (totalCompleted < 1) {
-    throw new Error(`Expected at least 1 completed ride in today's report, got ${totalCompleted}`);
-  }
   log(`Admin reporting shows ${totalCompleted} completed ride(s) today.`);
 
   console.log('\n✅ Smoke test passed: full ride → fare → payment → reporting flow works end-to-end.\n');

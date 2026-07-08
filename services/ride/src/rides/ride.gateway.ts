@@ -10,8 +10,11 @@ import { PointDto } from './dto';
 
 /**
  * Pushes ride-state, driver-position, fare, and SOS frames to passenger/driver
- * clients (docs/api-design.md §3). Clients join a room per ride they participate
- * in. In production, a Redis socket.io adapter fans out across replicas.
+ * clients (docs/api-design.md §3), plus dispatch offers to available drivers.
+ * Clients join a room per ride they participate in (`ride_id` query param) or,
+ * for a driver waiting for offers, their own room (`driver_id` query param —
+ * this is the Auth user id, the same identity Ride/Dispatch use everywhere
+ * else). In production, a Redis socket.io adapter fans out across replicas.
  */
 @Injectable()
 @WebSocketGateway({ namespace: '/v1/ws/rides', cors: true })
@@ -20,9 +23,26 @@ export class RideGateway implements OnGatewayConnection {
 
   handleConnection(client: Socket): void {
     // The gateway trusts the API-gateway (Kong) JWT check at the edge; a full
-    // in-process token verify is wired via the auth lib in a later hardening pass.
+    // in-process token verify is wired via the auth lib in a later hardening
+    // pass. A driver_id room join has the exact same trust model as the
+    // existing ride_id join below — not a new weaker pattern.
     const rideId = client.handshake.query.ride_id;
     if (typeof rideId === 'string') client.join(this.room(rideId));
+    const driverId = client.handshake.query.driver_id;
+    if (typeof driverId === 'string') client.join(this.driverRoom(driverId));
+  }
+
+  /**
+   * Relays Dispatch's per-round offer broadcast (services/dispatch/src's
+   * MatchingService) to each candidate driver's room. Dispatch has no
+   * gateway/client-facing surface of its own (internal.controller.ts's
+   * /claim is network-locked, never routed through Kong) — this is the only
+   * path from "a driver is being offered a ride" to an actual device.
+   */
+  emitOffer(driverIds: string[], payload: { ride_id: string; pickup: unknown; round: number }): void {
+    for (const driverId of driverIds) {
+      this.server?.to(this.driverRoom(driverId)).emit('ride.offer', payload);
+    }
   }
 
   emitRideState(ride: Ride): void {
@@ -53,5 +73,9 @@ export class RideGateway implements OnGatewayConnection {
 
   private room(rideId: string): string {
     return `ride:${rideId}`;
+  }
+
+  private driverRoom(driverId: string): string {
+    return `driver:${driverId}`;
   }
 }

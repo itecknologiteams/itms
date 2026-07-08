@@ -382,6 +382,17 @@ export class RideService {
     await mgr.save(mgr.create(OutboxEntity, { id: uuidv7(), eventName, payload, sentAt: null }));
   }
 
+  /**
+   * Internal-only: the pickup point for a ride that's still in `matching`,
+   * for RideEventsConsumer to relay alongside a dispatch offer push. Not
+   * exposed via any controller — a driver being offered a ride isn't yet a
+   * participant, so GET /rides/:id (getForActor) would 403 them.
+   */
+  async getPickupForOffer(rideId: string): Promise<Ride['pickupPoint'] | null> {
+    const ride = await this.rides.findOne({ where: { id: rideId } });
+    return ride?.pickupPoint ?? null;
+  }
+
   private async require(rideId: string): Promise<Ride> {
     const ride = await this.rides.findOne({ where: { id: rideId } });
     if (!ride) throw new NotFoundError('RIDE_NOT_FOUND', 'Ride not found');
