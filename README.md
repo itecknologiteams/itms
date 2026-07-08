@@ -9,9 +9,10 @@ tracked and validated against its paired geofence.
 
 | Component | Status |
 |---|---|
-| Backend — 12 microservices | ✅ Built, unit-tested, dockerized |
-| Admin Web Panel (Next.js) | ✅ Built, verified against mock data; wired for the real backend |
-| Passenger / Driver apps (Flutter) | ⏳ Not started — needs a Flutter toolchain |
+| Backend — 12 microservices | ✅ Built, unit-tested, dockerized, verified end-to-end (`npm run e2e:smoke`) |
+| Admin Web Panel (Next.js) | ✅ Built, verified against the real backend |
+| Passenger App (Flutter) | ✅ Built, verified end-to-end against the real backend (web target — no Android/iOS device tested yet) |
+| Driver App (Flutter) | ✅ Built, verified end-to-end against the real backend (web target — no Android/iOS device tested yet) |
 | Kubernetes/Helm/Kong manifests | ⏳ Not started — `docker-compose` is the local/dev deployment today |
 
 ## Quick start (run the whole system)
@@ -44,8 +45,8 @@ to prove the full ride → fare → payment flow works end-to-end against the ru
 
 | Component | Technology | Path |
 |---|---|---|
-| Passenger App (Android + iOS) | Flutter | `apps/passenger` (not started) |
-| Driver App (Android) | Flutter | `apps/driver` (not started) |
+| Passenger App (Android + iOS) | Flutter | `apps/passenger` |
+| Driver App (Android) | Flutter | `apps/driver` |
 | Admin Web Panel | Next.js (React) | `apps/admin` |
 | Backend (12 microservices) | NestJS monorepo | `services/*` |
 | Shared libraries | TypeScript | `libs/*` |
@@ -86,13 +87,15 @@ itms/
 │   ├── common/           # Config, logging, error envelope, health, geo utils, OpenAPI
 │   ├── events/           # RabbitMQ event-bus client + outbox pattern
 │   ├── auth/              # JWT guard, roles decorator (consumed by all services)
-│   └── design-tokens/     # Shared color/glass tokens — consumed by the admin panel today,
-│                          # and by the Flutter apps once mobile work starts
+│   └── design-tokens/     # Shared color/glass tokens — ported by hand into each app's
+│                          # theme (Tailwind config for admin, Dart constants for Flutter)
 ├── services/              # The 12 microservices (NestJS) — auth, passenger, driver, dispatch,
 │                          # geofence, tracking, ride, fare, payment, document, notification,
 │                          # admin-reporting
 ├── apps/
-│   └── admin/             # Admin Web Panel (Next.js)
+│   ├── admin/             # Admin Web Panel (Next.js)
+│   ├── passenger/         # Passenger App (Flutter — Android/iOS/web)
+│   └── driver/            # Driver App (Flutter — Android/iOS/web)
 ├── scripts/               # Dev scripts: key generation, migrate-all
 └── keys/                  # Local JWT keys (git-ignored; see keys/README.md)
 ```
@@ -116,6 +119,35 @@ npm run lint
 npm test
 ```
 
+## Mobile apps (Flutter)
+
+Both apps run against the same backend as everything else — no separate mock mode. With
+the stack up (`npm run infra:up` + `npm run migrate:all`, or the services running natively):
+
+```bash
+cd apps/passenger   # or apps/driver
+flutter pub get
+flutter run -d chrome   # or an Android device/emulator — flutter run -d <device-id>
+```
+
+Default API base URLs point at `localhost` with the same ports `infra/docker-compose.yml`
+publishes, so no config is needed for local dev. Override per build with `--dart-define`
+(e.g. `flutter build apk --dart-define=AUTH_BASE_URL=https://auth.itms.example`).
+
+**Known gaps, documented in code rather than faked:**
+- Neither app reads real device GPS yet — the Passenger app's map is tap-to-set-pickup, and
+  the Driver app sends the ride's own pickup point as its "current position" for the
+  start/no-show proximity checks (exactly what `scripts/smoke-test.mjs` does). A live
+  location provider is the next real piece of work here, not a design decision.
+  Correspondingly, no live driver-position marker is shown to the passenger during a
+  trip — no backend gateway pushes one (Tracking only derives distance post-ride, for Fare).
+- The Driver app's Documents and Earnings screens are placeholders: uploading a document
+  needs a 3-step signed-URL flow against the Document service that isn't wired up, and
+  there's no backend endpoint yet for a driver to see their own ride history or earnings.
+- Dispatch's ride offers reach a driver's app via a WebSocket room on `RideGateway`
+  (`services/ride/src/rides/ride.gateway.ts`) — this didn't exist until the Driver app needed
+  it; Dispatch itself has no client-facing surface, so this is the only delivery path today.
+
 ## Verifying it actually works
 
 This isn't just "it builds" — there's a real end-to-end proof:
@@ -133,5 +165,11 @@ This isn't just "it builds" — there's a real end-to-end proof:
   `docker-e2e` job that builds every image, brings up the full stack, and runs the smoke test —
   because this sandbox environment has no Docker daemon, **CI is the environment that actually
   proves the system works end-to-end**, continuously.
+- **Mobile apps**: both were driven end-to-end (login → book/accept a real ride → pay → rate)
+  as their `flutter build web` output, browser-automated against the live backend — not just
+  `flutter analyze`/`flutter test`. That process is what caught real bugs unit tests couldn't:
+  missing CORS on every service, an ID-space mismatch in a new endpoint, a stuck-forever UI
+  from a Postgres `bigint` field serializing as a JSON string, and the fact that dispatch ride
+  offers had no delivery path to a driver's device at all until this work added one.
 
 Service ports and credentials are documented in `.env.example` and `infra/docker-compose.yml`.
