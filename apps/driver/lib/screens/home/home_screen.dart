@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart' as ll;
+import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:provider/provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../models/driver.dart';
@@ -21,7 +20,36 @@ import '../ride/to_pickup_screen.dart';
 import '../ride/trip_complete_screen.dart';
 import 'online_toggle.dart';
 
-const _karachi = ll.LatLng(24.8607, 67.0011);
+const _karachi = LatLng(24.8607, 67.0011);
+
+/// A minimal raster style wrapping the same keyless OSM tiles the app has
+/// always used — MapLibre GL for the renderer/API surface, without pulling
+/// in a vector tile provider or API key. Encoded as a `data:` URL rather than
+/// passed as a raw JSON string: maplibre_gl's web platform hands styleString
+/// straight to maplibre-gl-js's `setStyle()`, which always treats a plain
+/// string as a URL to fetch rather than inline style JSON (unlike the
+/// Android/iOS platforms) — a `data:` URL is a URL the browser resolves
+/// locally, so it satisfies that without any network dependency.
+final _osmRasterStyle = Uri.dataFromString(
+  '''
+{
+  "version": 8,
+  "sources": {
+    "osm": {
+      "type": "raster",
+      "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      "tileSize": 256,
+      "attribution": "(c) OpenStreetMap contributors"
+    }
+  },
+  "layers": [
+    {"id": "osm-tiles", "type": "raster", "source": "osm"}
+  ]
+}
+''',
+  mimeType: 'application/json',
+  base64: true,
+).toString();
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -33,7 +61,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final DriverService _driverService;
   final _location = LocationService();
-  final _mapController = MapController();
+  MapLibreMapController? _mapController;
+  bool _styleReady = false;
+  Circle? _pickupCircle;
   DriverProfile? _profile;
   bool _toggling = false;
   String? _toggleError;
@@ -56,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _centerOnDeviceLocation() async {
     final position = await _location.getCurrentPosition();
     if (position == null || !mounted) return;
-    _mapController.move(ll.LatLng(position.lat, position.lon), 15);
+    _mapController?.moveCamera(CameraUpdate.newLatLngZoom(LatLng(position.lat, position.lon), 15));
   }
 
   Future<void> _loadProfile() async {
@@ -85,10 +115,37 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  /// MapLibre annotations are imperative (unlike flutter_map's declarative
+  /// MarkerLayer), so the pickup circle is reconciled against current ride
+  /// state after each frame rather than rebuilt as part of the widget tree.
+  Future<void> _syncPickupMarker(dynamic ride) async {
+    final controller = _mapController;
+    if (controller == null || !_styleReady) return;
+    final pickup = ride?.pickup;
+    if (pickup == null) {
+      if (_pickupCircle != null) {
+        await controller.removeCircle(_pickupCircle!);
+        _pickupCircle = null;
+      }
+      return;
+    }
+    final target = LatLng(pickup.lat, pickup.lon);
+    if (_pickupCircle != null && _pickupCircle!.options.geometry == target) return;
+    if (_pickupCircle != null) await controller.removeCircle(_pickupCircle!);
+    _pickupCircle = await controller.addCircle(CircleOptions(
+      geometry: target,
+      circleColor: '#${(AppColors.light.primary.value & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}',
+      circleRadius: 8,
+      circleStrokeWidth: 2,
+      circleStrokeColor: '#ffffff',
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final rideProvider = context.watch<RideProvider>();
     final ride = rideProvider.current;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncPickupMarker(ride));
 
     // Screen-awake during an active ride (docs/ui-ux.md §4 driver-mode
     // rules) — a no-op on web, real on Android/iOS.
@@ -101,22 +158,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: const MapOptions(initialCenter: _karachi, initialZoom: 13),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.itecknologi.itms.driver',
-              ),
-              if (ride?.pickup != null)
-                MarkerLayer(markers: [
-                  Marker(
-                    point: ll.LatLng(ride!.pickup.lat, ride.pickup.lon),
-                    child: Icon(Icons.my_location, color: AppColors.light.primary),
-                  ),
-                ]),
-            ],
+          MapLibreMap(
+            styleString: _osmRasterStyle,
+            initialCameraPosition: const CameraPosition(target: _karachi, zoom: 13),
+            onMapCreated: (controller) => _mapController = controller,
+            onStyleLoadedCallback: () => setState(() => _styleReady = true),
           ),
           SafeArea(
             child: Padding(

@@ -142,6 +142,12 @@ publishes, so no config is needed for local dev. Override per build with `--dart
   device won't answer. No live driver-position marker is shown to the passenger during
   a trip, though — no backend gateway pushes one (Tracking only derives distance
   post-ride, for Fare).
+- Maps are rendered with **MapLibre GL** (`maplibre_gl` package, pinned to `0.22.0` for
+  compatibility with Flutter 3.24.5 — newer releases require a Flutter SDK this project
+  isn't pinned to yet), wrapping the same keyless OSM raster tiles the apps have always
+  used rather than a vector tile provider or API key. `maplibre-gl-js` itself is vendored
+  under each app's `web/vendor/` (see the README there) instead of loaded from a CDN, so
+  the map doesn't depend on a third party's uptime at runtime.
 - The Driver app's Documents and Earnings screens are placeholders: uploading a document
   needs a 3-step signed-URL flow against the Document service that isn't wired up, and
   there's no backend endpoint yet for a driver to see their own ride history or earnings.
@@ -172,9 +178,20 @@ This isn't just "it builds" — there's a real end-to-end proof:
   missing CORS on every service, an ID-space mismatch in a new endpoint, a stuck-forever UI
   from a Postgres `bigint` field serializing as a JSON string, the fact that dispatch ride
   offers had no delivery path to a driver's device at all until this work added one, and a
-  Flutter web build that silently dropped the `geolocator` web plugin's registration after a
-  dependency change (fixed by `flutter clean` before rebuilding) — geolocation was verified
-  with real Chromium CDP permission grants and injected coordinates, including a
-  permission-denied case, not just code review.
+  Flutter web build that silently dropped the `geolocator`/`maplibre_gl` web plugins'
+  registration after a dependency change (fixed by `flutter clean` before rebuilding),
+  and a `maplibre_gl` web bug where a raw JSON style string is handed straight to
+  `maplibre-gl-js`'s `setStyle()`, which always treats a plain string as a URL to fetch
+  rather than inline style JSON — worked around by encoding the style as a `data:` URL
+  instead. Geolocation was verified with real Chromium CDP permission grants and injected
+  coordinates, including a permission-denied case, not just code review. The MapLibre
+  swap was verified structurally the same way (style parses and applies, camera moves,
+  tap-to-set-pickup still works, markers add/remove, no uncaught errors) — actual OSM
+  tile *pixels* couldn't be visually confirmed in this sandbox, because the browser's
+  network path can't reach external hosts at all here (confirmed independent of
+  MapLibre: a plain `fetch()` to any external host from inside the sandboxed Chromium
+  gets `ERR_CONNECTION_RESET`, while the same request from `curl` succeeds) — a sandbox
+  networking limitation, not a code defect; tile loading needs confirming on a real
+  device/browser outside this sandbox.
 
 Service ports and credentials are documented in `.env.example` and `infra/docker-compose.yml`.

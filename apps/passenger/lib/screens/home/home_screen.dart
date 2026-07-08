@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart' as ll;
+import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:provider/provider.dart';
 import '../../models/ride.dart';
 import '../../services/auth_provider.dart';
@@ -21,7 +20,36 @@ import 'matching_sheet.dart';
 import '../payment/payment_sheet.dart';
 import '../payment/receipt_sheet.dart';
 
-const _karachi = ll.LatLng(24.8607, 67.0011);
+const _karachi = LatLng(24.8607, 67.0011);
+
+/// A minimal raster style wrapping the same keyless OSM tiles the app has
+/// always used — MapLibre GL for the renderer/API surface, without pulling
+/// in a vector tile provider or API key. Encoded as a `data:` URL rather than
+/// passed as a raw JSON string: maplibre_gl's web platform hands styleString
+/// straight to maplibre-gl-js's `setStyle()`, which always treats a plain
+/// string as a URL to fetch rather than inline style JSON (unlike the
+/// Android/iOS platforms) — a `data:` URL is a URL the browser resolves
+/// locally, so it satisfies that without any network dependency.
+final _osmRasterStyle = Uri.dataFromString(
+  '''
+{
+  "version": 8,
+  "sources": {
+    "osm": {
+      "type": "raster",
+      "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      "tileSize": 256,
+      "attribution": "(c) OpenStreetMap contributors"
+    }
+  },
+  "layers": [
+    {"id": "osm-tiles", "type": "raster", "source": "osm"}
+  ]
+}
+''',
+  mimeType: 'application/json',
+  base64: true,
+).toString();
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -34,10 +62,13 @@ class _HomeScreenState extends State<HomeScreen> {
   LatLon? _pickup;
   LatLon? _dropoff;
   bool? _inServiceZone;
-  ll.LatLng _center = _karachi;
+  LatLng _center = _karachi;
+  MapLibreMapController? _mapController;
+  bool _styleReady = false;
+  Circle? _pickupCircle;
+  Circle? _dropoffCircle;
   final _geofence = GeofenceService();
   final _location = LocationService();
-  final _mapController = MapController();
   late final DriverService _driverService;
   late final PaymentService _paymentService;
 
@@ -58,12 +89,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _useDeviceLocation() async {
     final position = await _location.getCurrentPosition();
     if (position == null || !mounted) return;
-    final point = ll.LatLng(position.lat, position.lon);
+    final point = LatLng(position.lat, position.lon);
     setState(() {
       _center = point;
       _pickup ??= position;
     });
-    _mapController.move(point, 15);
+    _mapController?.moveCamera(CameraUpdate.newLatLngZoom(point, 15));
     _checkZone(position.lat, position.lon);
   }
 
@@ -76,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _onMapTap(ll.LatLng point) {
+  void _onMapTap(LatLng point) {
     setState(() {
       if (_pickup == null) {
         _pickup = LatLon(point.latitude, point.longitude);
@@ -95,24 +126,60 @@ class _HomeScreenState extends State<HomeScreen> {
     await rideProvider.requestRide(_pickup!, _dropoff);
   }
 
+  /// MapLibre annotations are imperative (unlike flutter_map's declarative
+  /// MarkerLayer), so pickup/dropoff circles are reconciled against current
+  /// state after each frame rather than rebuilt as part of the widget tree.
+  Future<void> _syncMarkers(Ride? ride) async {
+    final controller = _mapController;
+    if (controller == null || !_styleReady) return;
+    final pickup = ride?.pickup ?? _pickup;
+    final dropoff = ride?.dropoff ?? _dropoff;
+    await _syncCircle(controller, _pickupCircle, pickup, AppColors.light.primary, (c) => _pickupCircle = c);
+    await _syncCircle(controller, _dropoffCircle, dropoff, AppColors.light.danger, (c) => _dropoffCircle = c);
+  }
+
+  Future<void> _syncCircle(
+    MapLibreMapController controller,
+    Circle? existing,
+    LatLon? point,
+    Color color,
+    void Function(Circle?) store,
+  ) async {
+    if (point == null) {
+      if (existing != null) {
+        await controller.removeCircle(existing);
+        store(null);
+      }
+      return;
+    }
+    final target = LatLng(point.lat, point.lon);
+    if (existing != null && existing.options.geometry == target) return;
+    if (existing != null) await controller.removeCircle(existing);
+    final circle = await controller.addCircle(CircleOptions(
+      geometry: target,
+      circleColor: '#${(color.value & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}',
+      circleRadius: 8,
+      circleStrokeWidth: 2,
+      circleStrokeColor: '#ffffff',
+    ));
+    store(circle);
+  }
+
   @override
   Widget build(BuildContext context) {
     final rideProvider = context.watch<RideProvider>();
     final ride = rideProvider.current;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncMarkers(ride));
 
     return Scaffold(
       body: Stack(
         children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(initialCenter: _center, initialZoom: 13, onTap: (_, p) => _onMapTap(p)),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.itecknologi.itms.passenger',
-              ),
-              MarkerLayer(markers: _markers(ride)),
-            ],
+          MapLibreMap(
+            styleString: _osmRasterStyle,
+            initialCameraPosition: CameraPosition(target: _center, zoom: 13),
+            onMapCreated: (controller) => _mapController = controller,
+            onStyleLoadedCallback: () => setState(() => _styleReady = true),
+            onMapClick: (_, point) => _onMapTap(point),
           ),
           SafeArea(
             child: Padding(
@@ -135,25 +202,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-  }
-
-  List<Marker> _markers(Ride? ride) {
-    final markers = <Marker>[];
-    final pickup = ride?.pickup ?? _pickup;
-    final dropoff = ride?.dropoff ?? _dropoff;
-    if (pickup != null) {
-      markers.add(Marker(
-        point: ll.LatLng(pickup.lat, pickup.lon),
-        child: Icon(Icons.my_location, color: AppColors.light.primary),
-      ));
-    }
-    if (dropoff != null) {
-      markers.add(Marker(
-        point: ll.LatLng(dropoff.lat, dropoff.lon),
-        child: Icon(Icons.flag, color: AppColors.light.danger),
-      ));
-    }
-    return markers;
   }
 
   Widget _buildSheet(BuildContext context, RideProvider rideProvider, Ride? ride) {
