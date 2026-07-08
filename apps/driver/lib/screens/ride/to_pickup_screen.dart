@@ -4,11 +4,11 @@ import '../../widgets/glass_panel.dart';
 import '../../widgets/slide_to_confirm.dart';
 
 /// To pickup (docs/ui-ux.md §4): route + oversized actions, slide-to-confirm
-/// for Arrived/Start. No real device GPS is wired up in this build (same
-/// documented gap as the Passenger app), so `start` sends the ride's own
-/// pickup point as the driver's position — trivially satisfies the backend's
-/// 150m proximity check with distance 0, same as scripts/smoke-test.mjs
-/// does; a production build must use the device's real location here.
+/// for Arrived/Start. `onStart`/`onNoShow` (RideProvider.start/noShow) use
+/// the device's real GPS position for the backend's 150m proximity check,
+/// falling back to the ride's own pickup point only if the device won't
+/// answer — the same fallback scripts/smoke-test.mjs relies on unconditionally
+/// since it has no device to ask.
 class ToPickupScreen extends StatelessWidget {
   final Ride ride;
   final Future<void> Function() onArrived;

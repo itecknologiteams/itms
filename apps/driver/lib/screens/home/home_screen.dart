@@ -7,6 +7,7 @@ import '../../models/driver.dart';
 import '../../services/api_exception.dart';
 import '../../services/auth_provider.dart';
 import '../../services/driver_service.dart';
+import '../../services/location_service.dart';
 import '../../services/ride_provider.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/glass_panel.dart';
@@ -31,6 +32,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late final DriverService _driverService;
+  final _location = LocationService();
+  final _mapController = MapController();
   DriverProfile? _profile;
   bool _toggling = false;
   String? _toggleError;
@@ -45,6 +48,15 @@ class _HomeScreenState extends State<HomeScreen> {
     // and avoids reconnect races around the online/offline toggle. Only
     // online+eligible drivers are ever included in a dispatch round anyway.
     context.read<RideProvider>().startListeningForOffers();
+    _centerOnDeviceLocation();
+  }
+
+  /// Best-effort recenter — if permission is denied or the platform can't
+  /// answer, the map just stays on the Karachi fallback center.
+  Future<void> _centerOnDeviceLocation() async {
+    final position = await _location.getCurrentPosition();
+    if (position == null || !mounted) return;
+    _mapController.move(ll.LatLng(position.lat, position.lon), 15);
   }
 
   Future<void> _loadProfile() async {
@@ -90,6 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Stack(
         children: [
           FlutterMap(
+            mapController: _mapController,
             options: const MapOptions(initialCenter: _karachi, initialZoom: 13),
             children: [
               TileLayer(
@@ -147,8 +160,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return ToPickupScreen(
           ride: ride,
           onArrived: rideProvider.arrived,
-          onStart: () => rideProvider.start(ride.pickup),
-          onNoShow: () => rideProvider.noShow(ride.pickup),
+          onStart: rideProvider.start,
+          onNoShow: rideProvider.noShow,
         );
       case 'in_progress':
         return InTripScreen(startedAt: ride.startedAt, onEnd: rideProvider.end);

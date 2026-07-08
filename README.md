@@ -135,12 +135,13 @@ publishes, so no config is needed for local dev. Override per build with `--dart
 (e.g. `flutter build apk --dart-define=AUTH_BASE_URL=https://auth.itms.example`).
 
 **Known gaps, documented in code rather than faked:**
-- Neither app reads real device GPS yet — the Passenger app's map is tap-to-set-pickup, and
-  the Driver app sends the ride's own pickup point as its "current position" for the
-  start/no-show proximity checks (exactly what `scripts/smoke-test.mjs` does). A live
-  location provider is the next real piece of work here, not a design decision.
-  Correspondingly, no live driver-position marker is shown to the passenger during a
-  trip — no backend gateway pushes one (Tracking only derives distance post-ride, for Fare).
+- Both apps use real device GPS (`geolocator`) for the passenger's default pickup/map
+  center and the driver's start/no-show proximity checks and SOS position, falling back
+  to tap-to-set (passenger) or the ride's own pickup point (driver, matching
+  `scripts/smoke-test.mjs`'s headless behavior) only if permission is denied or the
+  device won't answer. No live driver-position marker is shown to the passenger during
+  a trip, though — no backend gateway pushes one (Tracking only derives distance
+  post-ride, for Fare).
 - The Driver app's Documents and Earnings screens are placeholders: uploading a document
   needs a 3-step signed-URL flow against the Document service that isn't wired up, and
   there's no backend endpoint yet for a driver to see their own ride history or earnings.
@@ -169,7 +170,11 @@ This isn't just "it builds" — there's a real end-to-end proof:
   as their `flutter build web` output, browser-automated against the live backend — not just
   `flutter analyze`/`flutter test`. That process is what caught real bugs unit tests couldn't:
   missing CORS on every service, an ID-space mismatch in a new endpoint, a stuck-forever UI
-  from a Postgres `bigint` field serializing as a JSON string, and the fact that dispatch ride
-  offers had no delivery path to a driver's device at all until this work added one.
+  from a Postgres `bigint` field serializing as a JSON string, the fact that dispatch ride
+  offers had no delivery path to a driver's device at all until this work added one, and a
+  Flutter web build that silently dropped the `geolocator` web plugin's registration after a
+  dependency change (fixed by `flutter clean` before rebuilding) — geolocation was verified
+  with real Chromium CDP permission grants and injected coordinates, including a
+  permission-denied case, not just code review.
 
 Service ports and credentials are documented in `.env.example` and `infra/docker-compose.yml`.

@@ -4,6 +4,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../models/ride.dart';
 import 'api_config.dart';
 import 'auth_provider.dart';
+import 'location_service.dart';
 
 class PendingOffer {
   final String rideId;
@@ -29,6 +30,7 @@ class RideProvider extends ChangeNotifier {
   Ride? current;
   bool loading = false;
   String? error;
+  final _location = LocationService();
 
   RideProvider(this.auth);
 
@@ -112,9 +114,14 @@ class RideProvider extends ChangeNotifier {
     await refresh();
   }
 
-  Future<void> start(LatLon position) async {
+  /// Uses the device's real current position for the backend's 150m pickup
+  /// proximity check; falls back to the ride's own pickup point only if the
+  /// device won't answer (permission denied, no fix yet), matching what
+  /// scripts/smoke-test.mjs does for a headless driver with no GPS at all.
+  Future<void> start() async {
     final ride = current;
     if (ride == null) return;
+    final position = await _location.getCurrentPosition() ?? ride.pickup;
     final client = auth.authenticatedClient(ApiConfig.rideBaseUrl);
     await client.post('/rides/${ride.id}/start', body: {'position': position.toJson()});
     await refresh();
@@ -128,9 +135,10 @@ class RideProvider extends ChangeNotifier {
     await refresh();
   }
 
-  Future<void> noShow(LatLon position) async {
+  Future<void> noShow() async {
     final ride = current;
     if (ride == null) return;
+    final position = await _location.getCurrentPosition() ?? ride.pickup;
     final client = auth.authenticatedClient(ApiConfig.rideBaseUrl);
     await client.post('/rides/${ride.id}/no-show', body: {'position': position.toJson()});
     await refresh();

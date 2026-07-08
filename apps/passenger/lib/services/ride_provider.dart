@@ -4,6 +4,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../models/ride.dart';
 import 'api_config.dart';
 import 'auth_provider.dart';
+import 'location_service.dart';
 
 /// Tracks the passenger's current active ride, kept in sync via the Ride
 /// service's REST API plus its 'ride.state'/'ride.fare' WebSocket push
@@ -19,6 +20,8 @@ class RideProvider extends ChangeNotifier {
   Timer? _pollTimer;
   bool loading = false;
   String? error;
+
+  final _location = LocationService();
 
   RideProvider(this.auth);
 
@@ -52,15 +55,15 @@ class RideProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// The app has no live GPS wired up (documented gap — see class doc), so
-  /// this reports the ride's pickup point rather than a fabricated live
-  /// position; a real build must not send a made-up coordinate for a safety
-  /// feature.
+  /// Uses the device's real current position for a safety feature; falls
+  /// back to the ride's own pickup point only if the device won't answer
+  /// (permission denied, no fix yet) rather than failing SOS outright.
   Future<void> sos() async {
     final ride = current;
     if (ride == null) return;
+    final position = await _location.getCurrentPosition() ?? ride.pickup;
     final client = auth.authenticatedClient(ApiConfig.rideBaseUrl);
-    await client.post('/rides/${ride.id}/sos', body: {'position': ride.pickup.toJson()});
+    await client.post('/rides/${ride.id}/sos', body: {'position': position.toJson()});
   }
 
   Future<void> cancel(String reason) async {

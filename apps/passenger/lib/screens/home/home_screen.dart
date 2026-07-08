@@ -6,6 +6,7 @@ import '../../models/ride.dart';
 import '../../services/auth_provider.dart';
 import '../../services/driver_service.dart';
 import '../../services/geofence_service.dart';
+import '../../services/location_service.dart';
 import '../../services/payment_service.dart';
 import '../../services/ride_provider.dart';
 import '../../theme/tokens.dart';
@@ -33,7 +34,10 @@ class _HomeScreenState extends State<HomeScreen> {
   LatLon? _pickup;
   LatLon? _dropoff;
   bool? _inServiceZone;
+  ll.LatLng _center = _karachi;
   final _geofence = GeofenceService();
+  final _location = LocationService();
+  final _mapController = MapController();
   late final DriverService _driverService;
   late final PaymentService _paymentService;
 
@@ -44,6 +48,23 @@ class _HomeScreenState extends State<HomeScreen> {
     _driverService = DriverService(auth);
     _paymentService = PaymentService(auth);
     _checkZone(_karachi.latitude, _karachi.longitude);
+    _useDeviceLocation();
+  }
+
+  /// Best-effort: on success, recenters the map and sets pickup to the
+  /// device's real position. If permission is denied or the platform can't
+  /// answer, the screen simply stays on the Karachi fallback center and the
+  /// tap-to-set flow below still works — no error is surfaced for this.
+  Future<void> _useDeviceLocation() async {
+    final position = await _location.getCurrentPosition();
+    if (position == null || !mounted) return;
+    final point = ll.LatLng(position.lat, position.lon);
+    setState(() {
+      _center = point;
+      _pickup ??= position;
+    });
+    _mapController.move(point, 15);
+    _checkZone(position.lat, position.lon);
   }
 
   Future<void> _checkZone(double lat, double lon) async {
@@ -83,7 +104,8 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Stack(
         children: [
           FlutterMap(
-            options: MapOptions(initialCenter: _karachi, initialZoom: 13, onTap: (_, p) => _onMapTap(p)),
+            mapController: _mapController,
+            options: MapOptions(initialCenter: _center, initialZoom: 13, onTap: (_, p) => _onMapTap(p)),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
