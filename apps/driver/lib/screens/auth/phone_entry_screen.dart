@@ -87,10 +87,10 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
                       child: ElevatedButton(
                         onPressed: _loading ? null : _submit,
                         child: _loading
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.light.textOnBrand),
                               )
                             : const Text('Send code'),
                       ),

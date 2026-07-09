@@ -41,7 +41,7 @@ class _MatchingSheetState extends State<MatchingSheet> with SingleTickerProvider
           const SizedBox(height: 16),
           Text('Contacting nearby drivers…', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
-          const Text('Expanding search as needed', style: TextStyle(color: Colors.black54)),
+          Text('Expanding search as needed', style: TextStyle(color: AppColors.light.textMuted)),
           const SizedBox(height: 16),
           OutlinedButton(onPressed: widget.onCancel, child: const Text('Cancel')),
         ],

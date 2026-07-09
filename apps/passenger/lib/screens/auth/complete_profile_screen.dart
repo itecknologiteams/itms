@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/passenger_service.dart';
+import '../../theme/tokens.dart';
 import '../../widgets/glass_panel.dart';
 
 /// Shown once, right after a passenger's first OTP verification
@@ -69,10 +70,10 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                       child: ElevatedButton(
                         onPressed: _loading ? null : _submit,
                         child: _loading
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.light.textOnBrand),
                               )
                             : const Text('Continue'),
                       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_provider.dart';
 import '../../services/passenger_service.dart';
+import '../../theme/tokens.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -48,7 +49,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               return ListTile(
                 title: Text(r['driverName'] as String? ?? 'Ride'),
                 subtitle: Text('${r['plateNo'] ?? ''} · ${r['status']}'),
-                trailing: Text('Rs $fare'),
+                trailing: Text('Rs $fare', style: const TextStyle(fontFamily: AppFonts.mono, fontWeight: FontWeight.w700)),
               );
             },
           );

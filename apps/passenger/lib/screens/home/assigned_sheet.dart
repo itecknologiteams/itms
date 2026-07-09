@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/driver_service.dart';
+import '../../theme/tokens.dart';
 import '../../widgets/glass_panel.dart';
 
 /// Driver assigned / arriving (docs/ui-ux.md §3). Shows the driver's public
@@ -80,12 +81,16 @@ class _AssignedSheetState extends State<AssignedSheet> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.black87,
-                      borderRadius: BorderRadius.circular(8),
+                      color: AppColors.light.secondary,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
                     ),
                     child: Text(
                       vehicle['plateNo'] as String,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: AppColors.light.textOnInk,
+                        fontFamily: AppFonts.mono,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
               ],

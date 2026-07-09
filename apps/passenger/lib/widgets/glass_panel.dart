@@ -1,11 +1,12 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 
-/// The one sanctioned glass primitive (docs/ui-ux.md §6, mirrors
-/// apps/admin's GlassPanel.tsx) — a frosted, translucent surface floating
-/// above the map. Compose everything glassy from this instead of hand-rolling
-/// blur/opacity per widget.
+/// The one sanctioned panel primitive every screen composes with. Used to
+/// be a frosted "liquid glass" blur; now renders the drivver design
+/// system's flat white card/sheet — soft cool-tinted shadow, 1px subtle
+/// border, generous rounding. Kept the same name/API (including the
+/// `GlassTier` vocabulary) so no call site needed to change, only this
+/// widget's internals.
 class GlassPanel extends StatelessWidget {
   final GlassTier tier;
   final Widget child;
@@ -22,31 +23,44 @@ class GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final spec = AppGlass.of(tier);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = isDark ? AppColors.dark : AppColors.light;
     final radius = borderRadius ??
         BorderRadius.circular(tier == GlassTier.modal ? AppRadius.sheet : AppRadius.card);
+    final shadow = switch (tier) {
+      GlassTier.modal => AppShadows.sheet,
+      GlassTier.overlay => AppShadows.sm,
+      GlassTier.raised => AppShadows.sm,
+    };
 
-    return ClipRRect(
-      borderRadius: radius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: spec.blur, sigmaY: spec.blur),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: isDark ? spec.fillDark : spec.fillLight,
-            borderRadius: radius,
-            border: Border.all(
-              color: isDark ? spec.borderDark : spec.borderLight,
-              width: 1,
-            ),
-            boxShadow: const [
-              BoxShadow(color: Color(0x1F000000), blurRadius: 32, offset: Offset(0, 8)),
-            ],
-          ),
-          child: child,
-        ),
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: colors.surfaceCard,
+        borderRadius: radius,
+        border: Border.all(color: colors.borderSubtle, width: 1),
+        boxShadow: shadow,
       ),
+      child: tier == GlassTier.modal
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 5,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      color: colors.borderSubtle,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+                child,
+              ],
+            )
+          : child,
     );
   }
 }

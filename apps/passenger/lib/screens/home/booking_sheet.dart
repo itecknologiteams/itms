@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/ride.dart';
+import '../../theme/tokens.dart';
 import '../../widgets/glass_panel.dart';
 
 /// "Where to?" sheet shown when there's no active ride (docs/ui-ux.md §3).
@@ -34,9 +35,9 @@ class BookingSheet extends StatelessWidget {
         children: [
           Text('Where to?', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Fare is calculated at ride end from time & distance — nothing to pay upfront.',
-            style: TextStyle(fontSize: 12, color: Colors.black54),
+            style: TextStyle(fontSize: 12, color: AppColors.light.textMuted),
           ),
           const SizedBox(height: 16),
           _PointRow(icon: Icons.my_location, label: 'Pickup', value: _fmt(pickup)),
@@ -56,9 +57,9 @@ class BookingSheet extends StatelessWidget {
             child: ElevatedButton(
               onPressed: canBook ? onBook : null,
               child: loading
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 20, height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.light.textOnBrand),
                     )
                   : const Text('Book a Ride'),
             ),

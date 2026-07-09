@@ -51,7 +51,7 @@ class _OfferOverlayState extends State<OfferOverlay> {
     final progress = _secondsLeft / RideProvider.offerWindowSeconds;
     return Positioned.fill(
       child: Container(
-        color: Colors.black54,
+        color: AppColors.light.overlayScrim,
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -72,7 +72,7 @@ class _OfferOverlayState extends State<OfferOverlay> {
                           value: progress,
                           strokeWidth: 6,
                           color: AppColors.light.primary,
-                          backgroundColor: Colors.grey.shade300,
+                          backgroundColor: AppColors.light.borderSubtle,
                         ),
                         Text('$_secondsLeft', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
                       ],
@@ -89,9 +89,9 @@ class _OfferOverlayState extends State<OfferOverlay> {
                     child: ElevatedButton(
                       onPressed: widget.accepting ? null : widget.onAccept,
                       child: widget.accepting
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 24, height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.light.textOnBrand),
                             )
                           : const Text('ACCEPT', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     ),

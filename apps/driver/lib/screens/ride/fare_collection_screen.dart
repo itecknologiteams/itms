@@ -30,7 +30,7 @@ class FareCollectionScreen extends StatelessWidget {
           Text('Collect fare', style: Theme.of(context).textTheme.titleMedium),
           Text(
             'Rs $rupees',
-            style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.displaySmall?.copyWith(fontFamily: AppFonts.mono, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
           SlideToConfirm(

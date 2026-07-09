@@ -89,9 +89,9 @@ class _ReceiptSheetState extends State<ReceiptSheet> {
               child: ElevatedButton(
                 onPressed: _submitting ? null : _submitRating,
                 child: _submitting
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 20, height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.light.textOnBrand),
                       )
                     : const Text('Submit rating'),
               ),

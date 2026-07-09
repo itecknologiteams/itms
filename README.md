@@ -63,7 +63,7 @@ All planning and design documents live in [`docs/`](docs/):
 | [architecture.md](docs/architecture.md) | Microservices architecture, event bus, consistency patterns, diagrams |
 | [data-model.md](docs/data-model.md) | Per-service database schemas and event payloads |
 | [api-design.md](docs/api-design.md) | API conventions, endpoint catalog, WebSocket & event contracts |
-| [ui-ux.md](docs/ui-ux.md) | Design system — glassmorphic "liquid glass" identity, screens, accessibility |
+| [ui-ux.md](docs/ui-ux.md) | Design system — glassmorphic "liquid glass" identity, screens, accessibility (superseded for the mobile apps — see "Mobile apps" below) |
 | [security.md](docs/security.md) | AuthN/AuthZ, PII & payment data protection, compliance checklist |
 | [devops.md](docs/devops.md) | Environments, CI/CD, deployment, monitoring, backup/DR |
 | [testing.md](docs/testing.md) | Test strategy, QA plan, load & field testing |
@@ -133,6 +133,21 @@ flutter run -d chrome   # or an Android device/emulator — flutter run -d <devi
 Default API base URLs point at `localhost` with the same ports `infra/docker-compose.yml`
 publishes, so no config is needed for local dev. Override per build with `--dart-define`
 (e.g. `flutter build apk --dart-define=AUTH_BASE_URL=https://auth.itms.example`).
+
+**Design system:** both apps' visual language (colors, typography, spacing, radii, shadows,
+motion) was restyled from a third-party "drivver" design system (Sora/Plus Jakarta
+Sans/JetBrains Mono type trio, sky-cyan brand with ink-navy text on primary buttons, flat
+white cards/sheets with soft cool-tinted shadows) — `theme/tokens.dart` and
+`theme/app_theme.dart` in each app are the source of truth, ported by hand from that
+system's `tokens/*.css`; `widgets/glass_panel.dart` (the shared card/sheet primitive every
+screen composes with) was rewritten to match while keeping its name/API stable so no
+screen needed touching. This is a visual system only — the product's own flows, copy, and
+"drivver" branding were **not** adopted (still the Electric Taxi product name/logic
+throughout); the design system's own generic rider-app mockup (upfront ride-tier
+pricing, card payment, destination search) was likewise not adopted since it contradicts
+real decisions already made here (no upfront fare, one vehicle type, cash/JazzCash-first).
+Fonts are bundled as local assets (`assets/fonts/`), not fetched at runtime via
+`google_fonts`, for the same reason `maplibre-gl-js` is vendored rather than CDN-loaded.
 
 **Known gaps, documented in code rather than faked:**
 - Both apps use real device GPS (`geolocator`) for the passenger's default pickup/map

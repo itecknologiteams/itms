@@ -18,10 +18,10 @@ class TripCompleteScreen extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.check_circle, color: Colors.green, size: 48),
+          Icon(Icons.check_circle, color: AppColors.light.success, size: 48),
           const SizedBox(height: 8),
           Text('Trip complete', style: Theme.of(context).textTheme.titleLarge),
-          Text('Rs $rupees collected'),
+          Text('Rs $rupees collected', style: const TextStyle(fontFamily: AppFonts.mono, fontWeight: FontWeight.w700)),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,

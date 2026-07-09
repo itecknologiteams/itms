@@ -13,7 +13,7 @@ class SlideToConfirm extends StatefulWidget {
     super.key,
     required this.label,
     required this.onConfirm,
-    this.color = const Color(0xFF0FA958),
+    this.color = AppSky.s500,
   });
 
   @override
@@ -60,8 +60,9 @@ class _SlideToConfirmState extends State<SlideToConfirm> {
                   child: Text(
                     _confirming ? 'Confirming…' : widget.label,
                     style: TextStyle(
-                      color: widget.color,
-                      fontWeight: FontWeight.w600,
+                      fontFamily: AppFonts.sans,
+                      color: AppColors.light.textPrimary,
+                      fontWeight: FontWeight.w700,
                       fontSize: 16,
                     ),
                   ),
@@ -98,7 +99,7 @@ class _SlideToConfirmState extends State<SlideToConfirm> {
                       ),
                       child: Icon(
                         _confirming ? Icons.check : Icons.arrow_forward,
-                        color: Colors.white,
+                        color: AppColors.light.textOnBrand,
                       ),
                     ),
                   ),

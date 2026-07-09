@@ -54,7 +54,7 @@ class _PaymentSheetState extends State<PaymentSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Fare', style: Theme.of(context).textTheme.titleMedium),
-          Text('Rs $rupees', style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold)),
+          Text('Rs $rupees', style: Theme.of(context).textTheme.displaySmall?.copyWith(fontFamily: AppFonts.mono)),
           const SizedBox(height: 16),
           SegmentedButton<String>(
             segments: const [
@@ -78,9 +78,9 @@ class _PaymentSheetState extends State<PaymentSheet> {
               child: ElevatedButton(
                 onPressed: _paying ? null : _pay,
                 child: _paying
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 20, height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.light.textOnBrand),
                       )
                     : Text('Pay Rs $rupees'),
               ),

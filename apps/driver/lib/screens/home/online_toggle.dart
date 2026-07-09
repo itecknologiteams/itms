@@ -48,13 +48,13 @@ class OnlineToggle extends StatelessWidget {
             child: ElevatedButton(
               onPressed: loading ? null : () => onToggle(!online),
               style: ElevatedButton.styleFrom(
-                backgroundColor: online ? AppColors.light.primary : Colors.grey.shade400,
+                backgroundColor: online ? AppColors.light.primary : AppColors.light.borderDefault,
               ),
               child: loading
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 24,
                       height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.light.textOnBrand),
                     )
                   : Text(
                       online ? 'ONLINE — tap to go offline' : 'OFFLINE — tap to go online',
